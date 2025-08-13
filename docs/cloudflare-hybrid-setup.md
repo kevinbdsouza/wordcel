@@ -1,6 +1,6 @@
 # Cloudflare Hybrid Deployment Guide
 
-Deploy QuillMind on Cloudflare with external Chroma vector store for the best of both worlds.
+Deploy Wordcel on Cloudflare with external Chroma vector store for the best of both worlds.
 
 ## 🏗️ Architecture
 
@@ -32,7 +32,7 @@ CHROMA_SERVER_HOST=0.0.0.0
 # render.yaml
 services:
   - type: web
-    name: quillmind-chroma
+    name: wordcel-chroma
     env: docker
     dockerContext: .
     dockerfilePath: ./Dockerfile.chroma
@@ -52,7 +52,7 @@ services:
 - name: chroma
   source_dir: /
   github:
-    repo: your-username/quillmind
+    repo: your-username/wordcel
     branch: main
   run_command: docker run -p 8000:8000 chromadb/chroma
   instance_count: 1
@@ -67,13 +67,13 @@ services:
 ### Update wrangler.toml
 ```toml
 # wrangler.toml
-name = "quillmind"
+name = "wordcel"
 compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "quillmind-db"
+ database_name = "quillmind-db"
 database_id = "your-database-id"
 
 # Remove Vectorize binding - we're using external Chroma
@@ -181,7 +181,7 @@ for (const batch of batches) {
 #!/bin/bash
 # deploy-hybrid.sh
 
-echo "🚀 Deploying QuillMind Hybrid Setup..."
+echo "🚀 Deploying Wordcel Hybrid Setup..."
 
 # 1. Deploy Chroma to external service
 echo "📦 Deploying Chroma..."

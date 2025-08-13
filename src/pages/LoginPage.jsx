@@ -14,14 +14,14 @@ import {
   Grid,
   Link,
 } from '@mui/material';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { loginUser, getProjects } from '../apiService'; // Import API function and getProjects
 import useStore from '../store'; // Import Zustand store hook
 
 function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(null); // Local error state
+  const [error, setError] = useState(null); // Form-level error
+  const [fieldErrors, setFieldErrors] = useState({}); // Field-level errors
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate(); // Hook for navigation
 
@@ -33,6 +33,7 @@ function LoginPage() {
     event.preventDefault(); // Prevent default form submission
     setLoading(true);
     setError(null); // Clear previous errors
+    setFieldErrors({});
 
     try {
       const responseData = await loginUser({ email, password });
@@ -52,6 +53,9 @@ function LoginPage() {
     } catch (err) {
       console.error('Login process failed:', err);
       setError(err.message || 'Failed to login. Please check your credentials.');
+      if (err.field) {
+        setFieldErrors({ [err.field]: err.message });
+      }
     } finally {
       setLoading(false);
     }
@@ -60,7 +64,7 @@ function LoginPage() {
   const textFieldStyles = {
     // Target the input text and labels
     '& .MuiInputBase-input': {
-      color: '#1A202C', // Ensure text is dark
+      color: '#FFFFFF', // Ensure text is white
     },
     '& .MuiInputLabel-root': {
       color: '#6f7680', // A pleasant grey for labels
@@ -92,11 +96,9 @@ function LoginPage() {
         flexDirection: 'column',
         alignItems: 'center'
       }}>
-        <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
-          <LockOutlinedIcon />
-        </Avatar>
+        <Avatar sx={{ m: 1, bgcolor: 'transparent', border: '1px solid', borderColor: 'divider' }} src="/logo.png" />
         <Typography component="h1" variant="h5">
-          Sign in to QuillMind
+          Sign in to Wordcel
         </Typography>
         {error && (
           <Alert severity="error" sx={{ width: '100%', mt: 2 }}>
@@ -117,6 +119,8 @@ function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
             sx={textFieldStyles}
+            error={Boolean(fieldErrors.email)}
+            helperText={fieldErrors.email}
           />
           <TextField
             margin="normal"
@@ -131,6 +135,8 @@ function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             disabled={loading}
             sx={textFieldStyles}
+            error={Boolean(fieldErrors.password)}
+            helperText={fieldErrors.password}
           />
           {/* Add Remember Me checkbox later if needed */}
           <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }} disabled={loading}>

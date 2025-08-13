@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# QuillMind Chroma Vector Store Startup Script
-# This script helps you start the Chroma vector database for QuillMind
+# Wordcel Chroma Vector Store Startup Script
+# This script helps you start the Chroma vector database for Wordcel
 
 set -e
 
-echo "🚀 Starting Chroma Vector Database for QuillMind..."
+echo "🚀 Starting Chroma Vector Database for Wordcel..."
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then
@@ -53,7 +53,7 @@ echo "💾 Data will be persisted in Docker volume: chroma_data"
 echo ""
 echo "Next steps:"
 echo "1. Install dependencies: npm install (in functions/api/)"
-echo "2. Start your QuillMind application"
+echo "2. Start your Wordcel application"
 echo "3. Index your project files to populate the vector store"
 echo ""
 echo "To stop Chroma: docker-compose down"

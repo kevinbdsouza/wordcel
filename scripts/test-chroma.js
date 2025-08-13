@@ -59,7 +59,7 @@ async function testChromaSetup() {
         
         console.log('\n🎉 All tests passed! Chroma setup is working correctly.');
         console.log('\n📝 Next steps:');
-        console.log('1. Start your QuillMind application');
+        console.log('1. Start your Wordcel application');
         console.log('2. Index your project files');
         console.log('3. Test RAG queries with your actual data');
         

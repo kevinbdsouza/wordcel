@@ -8,6 +8,12 @@ import { indexProjectFiles, indexSingleFile, removeFileFromIndex } from './servi
 
 // Manually create error and json response helpers to avoid itty-router
 
+// --- Validation helpers ---
+const isValidEmail = (email) => {
+  // Simple RFC 5322-inspired check that covers common cases
+  return typeof email === 'string' && /^(?:[^\s@]+)@(?:[^\s@]+)\.[^\s@]+$/.test(email);
+};
+
 // --- Authentication Middleware (as a helper function) ---
 const authenticate = (request, env) => {
   const authHeader = request.headers.get('authorization');
@@ -106,11 +112,14 @@ export const onRequest = async (context) => {
       if (id === 'register') {
         // --- [Register] Handler ---
         const { username, email, password } = await request.json();
-        if (!username || !email || !password) return error(400, { message: 'Username, email, and password are required.' });
+        if (!username || !email || !password) return error(400, { code: 'MISSING_FIELDS', message: 'Username, email, and password are required.' });
+        if (!isValidEmail(email)) return error(400, { code: 'INVALID_EMAIL_FORMAT', message: 'Please enter a valid email address.' });
+        if (typeof username !== 'string' || username.trim().length < 3) return error(400, { code: 'INVALID_USERNAME', message: 'Username must be at least 3 characters.' });
+        if (typeof password !== 'string' || password.length < 8) return error(400, { code: 'WEAK_PASSWORD', message: 'Password must be at least 8 characters.' });
         
         const checkUserQuery = 'SELECT user_id FROM users WHERE email = $1';
         const existingUserResult = await query(checkUserQuery, [email], env);
-        if (existingUserResult.rows.length > 0) return error(409, { message: 'Email already registered.' });
+        if (existingUserResult.rows.length > 0) return error(409, { code: 'EMAIL_TAKEN', message: 'That email is already registered. Try signing in.' });
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const insertUserQuery = `INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING user_id, username, email, created_at;`;
@@ -121,15 +130,16 @@ export const onRequest = async (context) => {
       if (id === 'login') {
         // --- [Login] Handler ---
         const { email, password } = await request.json();
-        if (!email || !password) return error(400, { message: 'Email and password are required.' });
+        if (!email || !password) return error(400, { code: 'MISSING_FIELDS', message: 'Email and password are required.' });
+        if (!isValidEmail(email)) return error(400, { code: 'INVALID_EMAIL_FORMAT', message: 'Please enter a valid email address.' });
 
         const findUserQuery = 'SELECT user_id, email, username, password_hash FROM users WHERE email = $1';
         const userResult = await query(findUserQuery, [email], env);
-        if (userResult.rows.length === 0) return error(401, { message: 'Invalid credentials.' });
+        if (userResult.rows.length === 0) return error(404, { code: 'EMAIL_NOT_FOUND', message: 'We couldn’t find an account with that email.' });
 
         const user = userResult.rows[0];
         const isMatch = await bcrypt.compare(password, user.password_hash);
-        if (!isMatch) return error(401, { message: 'Invalid credentials.' });
+        if (!isMatch) return error(401, { code: 'INCORRECT_PASSWORD', message: 'Incorrect password. Try again or reset it.' });
 
         const secret = env.JWT_SECRET;
         if (!secret) return error(500, { message: 'Internal server configuration error.' });
@@ -154,9 +164,15 @@ export const onRequest = async (context) => {
       if (request.method === 'POST' && !id) {
         // POST /api/projects
         const { name } = await request.json();
-        if (!name) return error(400, { message: 'Project name is required.' });
+        if (!name || !String(name).trim()) return error(400, { code: 'PROJECT_NAME_REQUIRED', message: 'Project name is required.' });
+        const trimmedName = String(name).trim();
+        if (trimmedName.length > 64) return error(400, { code: 'PROJECT_NAME_TOO_LONG', message: 'Project name must be 64 characters or fewer.' });
 
-        const result = await query('INSERT INTO projects (user_id, name) VALUES ($1, $2) RETURNING project_id, user_id, name, created_at, updated_at;', [userId, name], env);
+        // Prevent duplicate names per user (case-insensitive)
+        const dupCheck = await query('SELECT 1 FROM projects WHERE user_id = $1 AND LOWER(name) = LOWER($2) LIMIT 1', [userId, trimmedName], env);
+        if (dupCheck.rows.length > 0) return error(409, { code: 'PROJECT_NAME_TAKEN', message: 'A project with this name already exists.' });
+
+        const result = await query('INSERT INTO projects (user_id, name) VALUES ($1, $2) RETURNING project_id, user_id, name, created_at, updated_at;', [userId, trimmedName], env);
         return json(result.rows[0], { status: 201 });
       }
       
@@ -336,7 +352,7 @@ export const onRequest = async (context) => {
 
          if (updates.length > 0) {
              values.push(id);
-             const queryText = `UPDATE files SET ${updates.join(', ')}, updated_at = NOW() WHERE file_id = $${i}`;
+             const queryText = `UPDATE files SET ${updates.join(', ')}, updated_at = datetime('now','utc') WHERE file_id = $${i}`;
              await query(queryText, values, env);
              return json({ message: `File ${id} updated.` });
          }

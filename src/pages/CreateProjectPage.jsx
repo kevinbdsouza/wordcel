@@ -19,6 +19,7 @@ function CreateProjectPage() {
   const [projectName, setProjectName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
   const { setCurrentProject, setProjectFiles } = useStore((state) => ({
     setCurrentProject: state.setCurrentProject,
     setProjectFiles: state.setProjectFiles
@@ -28,10 +29,12 @@ function CreateProjectPage() {
     event.preventDefault();
     if (!projectName.trim()) {
       setError('Project name cannot be empty.');
+      setFieldErrors({ projectName: 'Project name cannot be empty.' });
       return;
     }
     setLoading(true);
     setError(null);
+    setFieldErrors({});
 
     try {
       const newProject = await createProject(projectName);
@@ -43,6 +46,9 @@ function CreateProjectPage() {
       navigate('/');
     } catch (err) {
       setError(err.message || 'Failed to create project.');
+      if (err.field) {
+        setFieldErrors({ [err.field]: err.message });
+      }
     } finally {
       setLoading(false);
     }
@@ -75,6 +81,8 @@ function CreateProjectPage() {
               onChange={(e) => setProjectName(e.target.value)}
               disabled={loading}
               variant="outlined"
+              error={Boolean(fieldErrors.projectName)}
+              helperText={fieldErrors.projectName}
             />
             
             <Button

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# QuillMind KV Vector Store Setup Script
+# Wordcel KV Vector Store Setup Script
 # Creates Cloudflare KV namespaces for vector storage
 
 set -e

@@ -1,15 +1,77 @@
 #!/bin/bash
 
-# Build script for "The Interim" novel
-# This script compiles all markdown files into a properly formatted PDF for self-publishing.
+# Generic book build script
+# Compiles markdown files into a properly formatted PDF for self-publishing.
 
 # Change to the script's directory to ensure correct file paths
 cd "$(dirname "$0")"
 
-echo "Building 'The Interim' PDF..."
+echo "Building Book PDF..."
+
+# Parse arguments and environment
+# Priority: CLI flags > environment vars > defaults
+usage() {
+	echo "Usage: $0 [-t|--title TITLE] [-a|--author AUTHOR] [-s|--subtitle SUBTITLE] [-o|--output OUTPUT.pdf] [-d|--dir SOURCE_DIR]"
+	echo "Environment vars: BOOK_TITLE, BOOK_AUTHOR, BOOK_SUBTITLE, OUTPUT_PDF, SOURCE_DIR"
+}
+
+BOOK_TITLE_DEFAULT="Untitled Book"
+BOOK_AUTHOR_DEFAULT="Unknown Author"
+BOOK_SUBTITLE_DEFAULT=""
+
+BOOK_TITLE="${BOOK_TITLE:-}" 
+BOOK_AUTHOR="${BOOK_AUTHOR:-}" 
+BOOK_SUBTITLE="${BOOK_SUBTITLE:-}"
+OUTPUT_PDF="${OUTPUT_PDF:-}"
+SOURCE_DIR="${SOURCE_DIR:-}"
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		-t|--title)
+			BOOK_TITLE="$2"; shift ;;
+		-a|--author)
+			BOOK_AUTHOR="$2"; shift ;;
+		-s|--subtitle)
+			BOOK_SUBTITLE="$2"; shift ;;
+		-o|--output)
+			OUTPUT_PDF="$2"; shift ;;
+		-d|--dir)
+			SOURCE_DIR="$2"; shift ;;
+		-h|--help)
+			usage; exit 0 ;;
+		*)
+			echo "Unknown option: $1"; usage; exit 1 ;;
+	 esac
+	shift
+done
+
+# Default source directory: current directory (this script's directory)
+if [ -z "$SOURCE_DIR" ]; then
+	SOURCE_DIR="$(pwd)"
+fi
+
+# Auto-detect source dir if no files found in current dir
+if [ ! -f "$SOURCE_DIR/prologue.md" ] && [ -z "$(find "$SOURCE_DIR" -maxdepth 1 -type f -name 'chapter_*.md' 2>/dev/null)" ] && [ ! -f "$SOURCE_DIR/epilogue.md" ]; then
+	if [ -f "../prologue.md" ] || [ -n "$(find .. -maxdepth 1 -type f -name 'chapter_*.md' 2>/dev/null)" ] || [ -f "../epilogue.md" ]; then
+		SOURCE_DIR="$(cd .. && pwd)"
+	fi
+fi
+
+# Fill in defaults for title/author/subtitle
+if [ -z "$BOOK_TITLE" ]; then BOOK_TITLE="$BOOK_TITLE_DEFAULT"; fi
+if [ -z "$BOOK_AUTHOR" ]; then BOOK_AUTHOR="$BOOK_AUTHOR_DEFAULT"; fi
+if [ -z "$BOOK_SUBTITLE" ]; then BOOK_SUBTITLE="$BOOK_SUBTITLE_DEFAULT"; fi
+
+# Derive default output name from title if not provided
+if [ -z "$OUTPUT_PDF" ]; then
+	TITLE_SAFE=$(printf '%s' "$BOOK_TITLE" | tr -cs '[:alnum:]' '_' | sed 's/^_*//; s/_*$//')
+	if [ -z "$TITLE_SAFE" ]; then TITLE_SAFE="book"; fi
+	OUTPUT_PDF="${TITLE_SAFE}.pdf"
+fi
 
 # Create the formatted manuscript with all pre-content and LaTeX settings.
-cat > formatted_manuscript.md << 'EOF'
+rm -f formatted_manuscript.md
+cat > formatted_manuscript.md << EOF
 ---
 geometry:
 - paperwidth=6in
@@ -23,8 +85,9 @@ header-includes: |
   \usepackage{fancyhdr}
   \usepackage{tocloft}
   \usepackage{ifthen}
-  \setlength{\parindent}{1.5em}
-  \setlength{\parskip}{0pt}
+  \usepackage{etoolbox}
+  \setlength{\parindent}{1.2em}
+  \setlength{\parskip}{0.35em}
   \tolerance=1000
   \emergencystretch=3em
   \raggedbottom
@@ -34,8 +97,9 @@ header-includes: |
   \renewcommand{\cftaftertoctitle}{\hfill\mbox{}}
   \makeatletter
 
-  \newcommand{\MyTitle}{The Interim}
-  \newcommand{\MyAuthor}{Ishan Viridian}
+  \newcommand{\MyTitle}{$BOOK_TITLE}
+  \newcommand{\MyAuthor}{$BOOK_AUTHOR}
+  \newcommand{\MySubtitle}{$BOOK_SUBTITLE}
 
   \newcommand{\halftitlepage}{
     \cleardoublepage
@@ -53,8 +117,7 @@ header-includes: |
     \vspace*{\fill}
     \begin{center}
       {\Huge \bfseries \MyTitle\par}
-      \vspace{2em}
-      {\Large \textit{Part of the AI Futures Series}\par}
+      \ifthenelse{\equal{\MySubtitle}{}}{}{\vspace{2em}{\Large \textit{\MySubtitle}\par}}
       \vspace{4em}
       {\large \MyAuthor\par}
     \end{center}
@@ -70,61 +133,17 @@ header-includes: |
     \vspace*{\fill}
   }
 
-  \newcommand{\dedicationpage}{
-    \cleardoublepage
-    \thispagestyle{empty}
-    \vspace*{\fill}
-    \begin{center}
-      {\Large\bfseries Dedication\par}
-      \vspace{4em}
-      \large\itshape To the human margin of error, where art, doubt, and hope reside.
-    \end{center}
-    \vspace*{\fill}
-  }
+  % Optional: define \dedicationpage yourself by editing the script if needed
 
   \let\oldchapter\chapter
   \renewcommand\chapter[1]{
-    \ifthenelse{\equal{#1}{Chapter 2: The Weight of Utility}\OR\equal{#1}{Chapter 3: The Interim}}{
-      \clearpage
-    }{
-      \cleardoublepage
-    }
+    \cleardoublepage
     \phantomsection
     \addcontentsline{toc}{chapter}{#1}
     \thispagestyle{empty}
     \vspace*{\fill}
     \begin{center}
-      \ifthenelse{\equal{#1}{Prologue: The Last Democracy}}{
-        {\Large \bfseries Prologue\par}
-        \vspace{1em}
-        {\Huge \bfseries The Last Democracy\par}
-      }{
-        \ifthenelse{\equal{#1}{Epilogue: The Pluralistic Dawn}}{
-          {\Large \bfseries Epilogue\par}
-          \vspace{1em}
-          {\Huge \bfseries The Pluralistic Dawn\par}
-        }{
-          \ifthenelse{\equal{#1}{Chapter 1: The Decoupling}}{
-            {\Large \bfseries Chapter 1\par}
-            \vspace{1em}
-            {\Huge \bfseries The Decoupling\par}
-          }{
-            \ifthenelse{\equal{#1}{Chapter 2: The Weight of Utility}}{
-              {\Large \bfseries Chapter 2\par}
-              \vspace{1em}
-              {\Huge \bfseries The Weight of Utility\par}
-            }{
-              \ifthenelse{\equal{#1}{Chapter 3: The Interim}}{
-                {\Large \bfseries Chapter 3\par}
-                \vspace{1em}
-                {\Huge \bfseries The Interim\par}
-              }{
-                {\Huge \bfseries #1\par}
-              }
-            }
-          }
-        }
-      }
+      {\Huge \bfseries #1\par}
     \end{center}
     \vspace*{\fill}
   }
@@ -164,7 +183,6 @@ header-includes: |
 \halftitlepage
 \maketitle
 \copyrightpage
-\dedicationpage
 
 \cleardoublepage
 \pagestyle{empty}
@@ -176,31 +194,65 @@ header-includes: |
 \mainmatter
 EOF
 
-# Define an array of files to process in order.
-# This makes it easier to manage the book's structure.
-CHAPTER_FILES=(
-    "prologue.md:Prologue: The Last Democracy"
-    "chapter_1.md:Chapter 1: The Decoupling"
-    "chapter_2.md:Chapter 2: The Weight of Utility"
-    "chapter_3.md:Chapter 3: The Interim"
-    "epilogue.md:Epilogue: The Pluralistic Dawn"
-)
+# Collect files in order: prologue, chapters (sorted), epilogue
+ITEMS=()
 
-# Process each file.
-for item in "${CHAPTER_FILES[@]}"; do
-    file="${item%%:*}"
-    title="${item#*:}"
-    echo "Adding $title..."
-    
-    echo -e "\n# $title\n" >> formatted_manuscript.md
-    
-    grep -v '^# ' "$file" >> formatted_manuscript.md
+# Helper to extract a title from the first H1 in a file; fallback based on filename
+extract_title() {
+	local path="$1"
+	local base
+	base="$(basename "$path")"
+	local t
+	t="$(grep -m1 '^# ' "$path" | sed 's/^# //')"
+	if [ -n "$t" ]; then
+		printf '%s' "$t"
+		return 0
+	fi
+	case "$base" in
+		prologue.md)
+			printf '%s' "Prologue" ;;
+		epilogue.md)
+			printf '%s' "Epilogue" ;;
+		chapter_*.md)
+			local n
+			n="$(printf '%s' "$base" | sed -n 's/^chapter_\([0-9][0-9]*\)\.md$/\1/p')"
+			if [ -n "$n" ]; then printf 'Chapter %s' "$n"; else printf '%s' "Chapter"; fi ;;
+		*)
+			printf '%s' "Untitled" ;;
+	esac
+}
+
+if [ -f "$SOURCE_DIR/prologue.md" ]; then
+	ITEMS+=("$SOURCE_DIR/prologue.md")
+fi
+
+CHAPTER_LIST=$(find "$SOURCE_DIR" -maxdepth 1 -type f -name 'chapter_*.md' 2>/dev/null | sort -V)
+if [ -n "$CHAPTER_LIST" ]; then
+	while IFS= read -r f; do
+		ITEMS+=("$f")
+	done <<__CH_END__
+$CHAPTER_LIST
+__CH_END__
+fi
+
+if [ -f "$SOURCE_DIR/epilogue.md" ]; then
+	ITEMS+=("$SOURCE_DIR/epilogue.md")
+fi
+
+# Process each collected file
+for file in "${ITEMS[@]}"; do
+	title="$(extract_title "$file")"
+	echo "Adding $title..."
+	
+	echo -e "\n# $title\n" >> formatted_manuscript.md
+	
+	grep -v '^# ' "$file" >> formatted_manuscript.md
 done
 
 # Add Author Bio at the end.
-if [ -f author_bio.md ]; then
-    echo "Adding Author Bio..."
-    cat >> formatted_manuscript.md << 'AUTHORBIO'
+if [ -f "$SOURCE_DIR/author_bio.md" ]; then
+	echo "Adding Author Bio..."
+	cat >> formatted_manuscript.md << 'AUTHORBIO'
 
 \cleardoublepage
 \phantomsection
@@ -212,8 +264,8 @@ if [ -f author_bio.md ]; then
 \vspace{2em}
 
 AUTHORBIO
-    grep -v '^# ' author_bio.md >> formatted_manuscript.md
-    cat >> formatted_manuscript.md << 'AUTHOREND'
+	grep -v '^# ' "$SOURCE_DIR/author_bio.md" >> formatted_manuscript.md
+	cat >> formatted_manuscript.md << 'AUTHOREND'
 
 \vspace*{\fill}
 \clearpage
@@ -223,12 +275,12 @@ fi
 
 # Generate PDF with proper LaTeX processing.
 echo "Converting to PDF..."
-pandoc formatted_manuscript.md -o "The_Interim.pdf" \
-    --standalone
+pandoc formatted_manuscript.md -o "$OUTPUT_PDF" \
+	--standalone
 
 if [ $? -eq 0 ]; then
-    echo "✅ PDF successfully generated: The_Interim.pdf"
-    echo "📄 File size: $(ls -lh The_Interim.pdf | awk '{print $5}')"
+	echo "✅ PDF successfully generated: $OUTPUT_PDF"
+	echo "📄 File size: $(ls -lh "$OUTPUT_PDF" | awk '{print $5}')"
 else
     echo "❌ Error generating PDF"
     exit 1

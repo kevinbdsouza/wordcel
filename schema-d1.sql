@@ -1,5 +1,5 @@
 -- schema-d1.sql
--- This script defines the database schema for the QuillMind application, adapted for Cloudflare D1 (SQLite).
+-- This script defines the database schema for the Wordcel application, adapted for Cloudflare D1 (SQLite).
 
 -- Drop tables if they exist
 DROP TABLE IF EXISTS files;

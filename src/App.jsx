@@ -21,6 +21,8 @@ import darkTheme from './theme';
 function ResizeHandle({ onResize, orientation = 'vertical' }) {
   const isDragging = useRef(false);
   const lastPos = useRef(0);
+  const rafId = useRef(null);
+  const overlayRef = useRef(null);
 
   const handleMouseDown = useCallback((e) => {
     e.preventDefault();
@@ -29,31 +31,53 @@ function ResizeHandle({ onResize, orientation = 'vertical' }) {
     
     document.body.style.cursor = orientation === 'vertical' ? 'col-resize' : 'row-resize';
     document.body.style.userSelect = 'none';
-    document.body.style.pointerEvents = 'none';
+    // Add a transparent overlay to ensure events aren't lost to iframes or other panes
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.cursor = orientation === 'vertical' ? 'col-resize' : 'row-resize';
+    overlay.style.zIndex = '2147483647';
+    overlay.style.background = 'transparent';
+    document.body.appendChild(overlay);
+    overlayRef.current = overlay;
 
     const handleMouseMove = (e) => {
       if (!isDragging.current) return;
       
       const currentPos = orientation === 'vertical' ? e.clientX : e.clientY;
       const delta = currentPos - lastPos.current;
-      
-      if (Math.abs(delta) > 0) { // Only update if there's actual movement
+      if (Math.abs(delta) === 0) return;
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+      rafId.current = requestAnimationFrame(() => {
         onResize(delta);
         lastPos.current = currentPos;
-      }
+      });
     };
 
     const handleMouseUp = () => {
       isDragging.current = false;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      document.body.style.pointerEvents = '';
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = null;
+      }
+      if (overlayRef.current) {
+        try { document.body.removeChild(overlayRef.current); } catch (e) {}
+        overlayRef.current = null;
+      }
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('pointerup', handleMouseUp);
+      window.removeEventListener('pointercancel', handleMouseUp);
+      window.removeEventListener('blur', handleMouseUp);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('pointerup', handleMouseUp);
+    window.addEventListener('pointercancel', handleMouseUp);
+    window.addEventListener('blur', handleMouseUp);
   }, [onResize, orientation]);
 
   return (
@@ -148,13 +172,13 @@ function AppHeader() {
       alignItems: 'center',
       borderBottom: '1px solid',
       borderColor: 'divider',
-      background: 'linear-gradient(180deg, rgba(17,22,28,0.9), rgba(17,22,28,0.85))',
-      backdropFilter: 'saturate(140%) blur(6px)'
+      background: 'linear-gradient(180deg, rgba(17,22,28,0.9), rgba(17,22,28,0.82))',
+      backdropFilter: 'saturate(140%) blur(8px)'
     }}>
       <Box display="flex" alignItems="center">
         <img 
           src="/logo.png" 
-          alt="QuillMind Logo" 
+          alt="Wordcel Logo" 
           style={{ 
             height: '32px', 
             width: 'auto', 
@@ -162,7 +186,7 @@ function AppHeader() {
           }} 
         />
         <Typography variant="h6" component="span" sx={{ fontWeight: 'bold' }}>
-          QuillMind
+          Wordcel
         </Typography>
         {currentProject && (
           <>

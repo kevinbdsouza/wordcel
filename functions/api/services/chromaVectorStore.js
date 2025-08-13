@@ -18,7 +18,7 @@ const initializeChroma = async (env) => {
         try {
             defaultCollection = await chromaClient.getOrCreateCollection({
                 name: "project_embeddings",
-                metadata: { "description": "QuillMind project file embeddings" }
+                metadata: { "description": "Wordcel project file embeddings" }
             });
             console.log("Connected to project_embeddings collection");
         } catch (collectionError) {

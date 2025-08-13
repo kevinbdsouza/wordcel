@@ -271,14 +271,22 @@ function ChatPanel() {
         alignItems: 'center',
         borderBottom: '1px solid', 
         borderColor: 'divider', 
-        pb: 1, 
-        mb: 2 
+        pb: 1.25, 
+        mb: 2,
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0))',
+        borderRadius: 1
       }}>
-        <Typography variant="h6">
+        <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: 0.2 }}>
           {displayTitle}
         </Typography>
         <Tooltip title="New Chat">
-          <IconButton onClick={createNewChat} size="small" sx={{ color: 'primary.main' }}>
+          <IconButton onClick={createNewChat} size="small" sx={{ 
+            color: 'primary.main',
+            border: '1px solid rgba(124,92,252,0.35)',
+            borderRadius: 1,
+            backgroundColor: 'rgba(124,92,252,0.08)',
+            '&:hover': { backgroundColor: 'rgba(124,92,252,0.16)' }
+          }}>
             <AddIcon />
           </IconButton>
         </Tooltip>
@@ -355,18 +363,19 @@ function ChatPanel() {
             <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32, m: 1 }}>
               {msg.author === 'AI' ? <SmartToyIcon fontSize="small" /> : <PersonIcon fontSize="small" />}
             </Avatar>
-            <Paper 
-                elevation={1}
+              <Paper 
+                elevation={2}
                 sx={{
-                    p: '10px 14px',
-                    borderRadius: '16px',
-                    bgcolor: msg.author === 'AI' ? 'background.default' : 'rgba(124,92,252,0.16)',
+                    p: '12px 16px',
+                    borderRadius: '14px',
+                    bgcolor: msg.author === 'AI' ? 'rgba(17,22,28,0.82)' : 'rgba(124,92,252,0.12)',
                     color: 'text.primary',
                     border: '1px solid',
-                    borderColor: msg.author === 'AI' ? 'divider' : 'rgba(124,92,252,0.35)',
-                    maxWidth: '80%'
+                    borderColor: msg.author === 'AI' ? 'rgba(148,163,184,0.16)' : 'rgba(124,92,252,0.35)',
+                    maxWidth: '80%',
+                    boxShadow: '0 12px 28px rgba(2,6,12,0.35)'
                 }}
-            >
+              >
                 {msg.author === 'AI' ? (
                   <ReactMarkdown
                     components={{
@@ -384,15 +393,17 @@ function ChatPanel() {
                         <Box 
                           component="pre" 
                           sx={{ 
-                            bgcolor: 'grey.900', 
+                            bgcolor: 'rgba(2,6,12,0.85)', 
                             p: 2, 
                             borderRadius: 1, 
                             overflow: 'auto',
                             my: 1,
+                            border: '1px solid rgba(148,163,184,0.18)',
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
                             '& code': {
                               bgcolor: 'transparent',
                               p: 0,
-                              fontSize: '0.875rem',
+                              fontSize: '0.9rem',
                               fontFamily: 'monospace'
                             }
                           }} 

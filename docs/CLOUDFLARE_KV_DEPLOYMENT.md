@@ -1,6 +1,6 @@
 # Cloudflare KV Vector Store Deployment Guide
 
-Deploy QuillMind with 100% free, persistent vector storage using Cloudflare KV - no external services needed!
+Deploy Wordcel with 100% free, persistent vector storage using Cloudflare KV - no external services needed!
 
 ## 🎯 Why Cloudflare KV Vector Store?
 
@@ -130,7 +130,7 @@ curl https://your-app.pages.dev/api/health
 
 After deploying, index a project to test vector storage:
 
-1. **Open your QuillMind app**
+1. **Open your Wordcel app**
 2. **Create/select a project**
 3. **Click "Index Project" in the Project Explorer**
 4. **Ask a RAG question** about your project
@@ -303,7 +303,7 @@ If you encounter issues:
 
 You now have a **completely free, persistent, globally distributed vector store** running on Cloudflare! 
 
-Your QuillMind application will:
+Your Wordcel application will:
 - ✅ **Never lose vector data** again
 - ✅ **Scale globally** with Cloudflare's edge network  
 - ✅ **Cost $0** to run

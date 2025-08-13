@@ -18,7 +18,7 @@ let storeInitialized = false;
 
 // Simple persistence using a global object to simulate shared storage
 // This is a workaround for local development
-const globalStore = globalThis.QUILLMIND_VECTOR_STORE || (globalThis.QUILLMIND_VECTOR_STORE = []);
+const globalStore = globalThis.WORDCEL_VECTOR_STORE || (globalThis.WORDCEL_VECTOR_STORE = []);
 
 const inMemoryStore = {
     async upsert(embeddings) {

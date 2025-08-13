@@ -1,4 +1,4 @@
-// quillmind/src/index.js
+// wordcel/src/index.js
 // src/index.jsx
 import React from 'react';
 import { createRoot } from 'react-dom/client';

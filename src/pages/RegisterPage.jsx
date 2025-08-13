@@ -14,7 +14,6 @@ import {
   Grid,
   Link,
 } from '@mui/material';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { registerUser } from '../apiService'; // Import API function
 
 function RegisterPage() {
@@ -22,6 +21,7 @@ function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [success, setSuccess] = useState(null); // For success message
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate(); // Hook for navigation
@@ -31,6 +31,7 @@ function RegisterPage() {
     setLoading(true);
     setError(null);
     setSuccess(null);
+    setFieldErrors({});
 
     try {
       const responseData = await registerUser({ username, email, password });
@@ -46,6 +47,9 @@ function RegisterPage() {
     } catch (err) {
       console.error('Registration failed:', err);
       setError(err.message || 'Registration failed. Please try again.');
+      if (err.field) {
+        setFieldErrors({ [err.field]: err.message });
+      }
     } finally {
       setLoading(false);
     }
@@ -54,7 +58,7 @@ function RegisterPage() {
   const textFieldStyles = {
     // Target the input text and labels
     '& .MuiInputBase-input': {
-      color: '#1A202C', // Ensure text is dark
+      color: '#FFFFFF', // Ensure text is white
     },
     '& .MuiInputLabel-root': {
       color: '#6f7680', // A pleasant grey for labels
@@ -80,11 +84,9 @@ function RegisterPage() {
   return (
     <Container component="main" maxWidth="xs">
       <Paper elevation={6} sx={{ mt: 8, p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
-          <LockOutlinedIcon />
-        </Avatar>
+        <Avatar sx={{ m: 1, bgcolor: 'transparent', border: '1px solid', borderColor: 'divider' }} src="/logo.png" />
         <Typography component="h1" variant="h5">
-          Sign up for QuillMind
+          Sign up for Wordcel
         </Typography>
         {error && (
           <Alert severity="error" sx={{ width: '100%', mt: 2 }}>
@@ -110,6 +112,8 @@ function RegisterPage() {
             onChange={(e) => setUsername(e.target.value)}
             disabled={loading}
             sx={textFieldStyles}
+            error={Boolean(fieldErrors.username)}
+            helperText={fieldErrors.username}
           />
           <TextField
             margin="normal"
@@ -123,6 +127,8 @@ function RegisterPage() {
             onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
             sx={textFieldStyles}
+            error={Boolean(fieldErrors.email)}
+            helperText={fieldErrors.email}
           />
           <TextField
             margin="normal"
@@ -137,6 +143,8 @@ function RegisterPage() {
             onChange={(e) => setPassword(e.target.value)}
             disabled={loading}
             sx={textFieldStyles}
+            error={Boolean(fieldErrors.password)}
+            helperText={fieldErrors.password}
           />
           <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }} disabled={loading}>
             {loading ? <CircularProgress size={24} color="inherit" /> : 'Sign Up'}

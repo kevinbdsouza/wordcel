@@ -53,12 +53,32 @@ const darkTheme = createTheme({
         '*::-webkit-scrollbar-thumb:hover': { backgroundColor: 'rgba(148,163,184,0.55)' }
       }
     },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: 'rgba(17,22,28,0.9)',
+          border: '1px solid rgba(148,163,184,0.16)',
+          boxShadow: '0 18px 60px rgba(2,6,12,0.5)',
+          backdropFilter: 'saturate(140%) blur(8px)'
+        }
+      }
+    },
+    MuiBackdrop: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'rgba(2,6,12,0.55)',
+          backdropFilter: 'blur(4px)'
+        }
+      }
+    },
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(17,22,28,0.92)',
-          border: '1px solid rgba(148,163,184,0.12)',
-          backdropFilter: 'saturate(140%) blur(6px)'
+          backgroundColor: 'rgba(17,22,28,0.86)',
+          backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0))',
+          border: '1px solid rgba(148,163,184,0.14)',
+          boxShadow: '0 10px 30px rgba(2,6,12,0.35)',
+          backdropFilter: 'saturate(140%) blur(8px)'
         }
       }
     },
@@ -90,7 +110,8 @@ const darkTheme = createTheme({
         tooltip: {
           backgroundColor: 'rgba(15,23,42,0.96)',
           border: '1px solid rgba(148,163,184,0.18)',
-          borderRadius: 10
+          borderRadius: 10,
+          boxShadow: '0 10px 30px rgba(2,6,12,0.35)'
         }
       }
     },

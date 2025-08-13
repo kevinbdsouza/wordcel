@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# QuillMind Hybrid Deployment Script
+# Wordcel Hybrid Deployment Script
 # Deploys app to Cloudflare with external Chroma vector store
 
 set -e
 
-echo "🚀 Starting QuillMind Hybrid Deployment..."
+echo "🚀 Starting Wordcel Hybrid Deployment..."
 
 # Check if we have the required tools
 echo "🔍 Checking prerequisites..."

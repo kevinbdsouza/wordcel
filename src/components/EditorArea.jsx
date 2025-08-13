@@ -5,8 +5,10 @@ import {
   FormatBold, FormatItalic, FormatUnderlined, 
   FormatListBulleted, FormatListNumbered, Code, 
   FormatQuote, Redo, Undo, AddComment,
-  Close as CloseIcon, MenuBook,
+  Close as CloseIcon, MenuBook, PictureAsPdf, LocalPrintshop,
 } from '@mui/icons-material';
+import ReactMarkdown from 'react-markdown';
+import { marked } from 'marked';
 import Editor, { loader, useMonaco } from '@monaco-editor/react';
 import apiService from '../apiService';
 import useStore from '../store';
@@ -14,70 +16,63 @@ import { updateFile } from '../apiService'; // Import updateFile
 
   const suggestionHighlightStyle = `
   .suggestion-highlight-old {
-    background-color: rgba(255, 99, 71, 0.3);
-    border-radius: 3px;
-    text-decoration: line-through;
+    background: linear-gradient(90deg, rgba(239,68,68,0.18), rgba(239,68,68,0.12));
+    border-radius: 6px;
+    outline: 1px dashed rgba(239,68,68,0.35);
+    outline-offset: 2px;
+    text-decoration: none;
     position: relative;
     cursor: pointer;
   }
   .suggestion-highlight-new {
-    background-color: rgba(144, 238, 144, 0.3);
-    border-radius: 3px;
+    background: linear-gradient(90deg, rgba(34,197,94,0.18), rgba(34,197,94,0.12));
+    border-radius: 6px;
+    outline: 1px dashed rgba(34,197,94,0.35);
+    outline-offset: 2px;
     position: relative;
     cursor: pointer;
   }
   .suggestion-inline-controls {
     display: flex !important;
     flex-direction: row !important;
-    gap: 4px !important;
-    margin-left: 4px !important;
+    gap: 6px !important;
+    margin-left: 6px !important;
     vertical-align: middle !important;
     align-items: center !important;
-    background-color: rgba(60, 60, 60, 0.95) !important;
-    border-radius: 4px !important;
-    padding: 2px 4px !important;
-    border: 1px solid #555 !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+    background: rgba(17,22,28,0.88) !important;
+    border-radius: 8px !important;
+    padding: 4px 6px !important;
+    border: 1px solid rgba(148,163,184,0.24) !important;
+    box-shadow: 0 10px 24px rgba(2,6,12,0.5) !important;
     z-index: 10001 !important;
     position: fixed !important;
+    backdrop-filter: saturate(140%) blur(6px) !important;
   }
   .suggestion-inline-button {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 20px !important;
-    height: 20px !important;
-    border-radius: 3px !important;
-    border: 1px solid #555 !important;
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 6px !important;
+    border: 1px solid rgba(148,163,184,0.35) !important;
     cursor: pointer !important;
     font-size: 12px !important;
-    font-weight: bold !important;
-    transition: all 0.2s ease !important;
+    font-weight: 700 !important;
+    transition: transform 0.15s ease, background-color 0.15s ease !important;
     flex-shrink: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+    color: #E6EDF3 !important;
+    background-color: rgba(255,255,255,0.04) !important;
   }
-  .suggestion-accept-button {
-    background-color: #4caf50 !important;
-    color: white !important;
-  }
-  .suggestion-accept-button:hover {
-    background-color: #45a049 !important;
-  }
-  .suggestion-reject-button {
-    background-color: #f44336 !important;
-    color: white !important;
-  }
-  .suggestion-reject-button:hover {
-    background-color: #da190b !important;
-  }
-  .suggestion-preview-button {
-    background-color: #2196f3 !important;
-    color: white !important;
-  }
-  .suggestion-preview-button:hover {
-    background-color: #1976d2 !important;
-  }
+  .suggestion-inline-button:hover { transform: translateY(-1px) !important; }
+  .suggestion-accept-button { background-color: #16A34A !important; }
+  .suggestion-accept-button:hover { background-color: #12833D !important; }
+  .suggestion-reject-button { background-color: #EF4444 !important; }
+  .suggestion-reject-button:hover { background-color: #C03333 !important; }
+  .suggestion-preview-button { background-color: #3B82F6 !important; }
+  .suggestion-preview-button:hover { background-color: #2C6CD6 !important; }
 `;
 
 // Simple debounce function
@@ -96,7 +91,7 @@ function debounce(func, wait) {
 // Set up Monaco loader
 loader.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.49.0/min/vs' } });
 
-const EditorToolbar = ({ onAction, onAiAction, isTextSelected, isAiLoading }) => {
+const EditorToolbar = ({ onAction, onAiAction, isTextSelected, isAiLoading, isCompilingPdf, hasPdf }) => {
   const topActions = [
     { label: 'Undo', action: 'undo', icon: <Undo /> },
     { label: 'Redo', action: 'redo', icon: <Redo /> },
@@ -115,8 +110,26 @@ const EditorToolbar = ({ onAction, onAiAction, isTextSelected, isAiLoading }) =>
   const aiActions = [
     { label: 'Custom', icon: <AddComment />, action: 'custom' },
     { label: 'Create Book Structure', icon: <MenuBook />, action: 'create_book_structure' },
+    { label: 'Compile Book', icon: <LocalPrintshop />, action: 'compile_book' },
+    { label: 'PDF Panel', icon: <PictureAsPdf />, action: 'toggle_pdf_panel' },
   ];
   
+  const isActionDisabled = (action) => {
+    if (action === 'custom') {
+      return !isTextSelected || isAiLoading;
+    }
+    if (action === 'create_book_structure') {
+      return isAiLoading;
+    }
+    if (action === 'compile_book') {
+      return !!isCompilingPdf; // only disable during active compile
+    }
+    if (action === 'toggle_pdf_panel') {
+      return !hasPdf || !!isCompilingPdf;
+    }
+    return false;
+  };
+
   return (
     <Paper 
       elevation={0}
@@ -165,7 +178,7 @@ const EditorToolbar = ({ onAction, onAiAction, isTextSelected, isAiLoading }) =>
                     e.preventDefault();
                     onAiAction(item.action);
                 }}
-                disabled={item.action === 'create_book_structure' ? isAiLoading : (!isTextSelected || isAiLoading)}
+                disabled={isActionDisabled(item.action)}
               >
                 {item.icon}
               </IconButton>
@@ -199,52 +212,52 @@ const createInlineControls = (suggestionId, onAccept, onReject, onPreview, sugge
     position: fixed !important;
   `;
   
-  const acceptButton = document.createElement('button');
+    const acceptButton = document.createElement('button');
   acceptButton.className = 'suggestion-inline-button suggestion-accept-button';
   acceptButton.innerHTML = '✓';
   acceptButton.title = 'Accept';
-  acceptButton.style.cssText = `
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 20px !important;
-    height: 20px !important;
-    border-radius: 3px !important;
-    border: 1px solid #555 !important;
-    cursor: pointer !important;
-    font-size: 12px !important;
-    font-weight: bold !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background-color: #4caf50 !important;
-    color: white !important;
-  `;
+    acceptButton.style.cssText = `
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 22px !important;
+      height: 22px !important;
+      border-radius: 6px !important;
+      border: 1px solid rgba(148,163,184,0.35) !important;
+      cursor: pointer !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background-color: #16A34A !important;
+      color: #ffffff !important;
+    `;
   acceptButton.onclick = (e) => {
     e.preventDefault();
     e.stopPropagation();
     onAccept();
   };
   
-  const rejectButton = document.createElement('button');
+    const rejectButton = document.createElement('button');
   rejectButton.className = 'suggestion-inline-button suggestion-reject-button';
   rejectButton.innerHTML = '✗';
   rejectButton.title = 'Reject';
-  rejectButton.style.cssText = `
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 20px !important;
-    height: 20px !important;
-    border-radius: 3px !important;
-    border: 1px solid #555 !important;
-    cursor: pointer !important;
-    font-size: 12px !important;
-    font-weight: bold !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background-color: #f44336 !important;
-    color: white !important;
-  `;
+    rejectButton.style.cssText = `
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 22px !important;
+      height: 22px !important;
+      border-radius: 6px !important;
+      border: 1px solid rgba(148,163,184,0.35) !important;
+      cursor: pointer !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background-color: #EF4444 !important;
+      color: #ffffff !important;
+    `;
   rejectButton.onclick = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -257,22 +270,22 @@ const createInlineControls = (suggestionId, onAccept, onReject, onPreview, sugge
     previewButton.className = 'suggestion-inline-button suggestion-preview-button';
     previewButton.innerHTML = '👁';
     previewButton.title = 'Preview';
-    previewButton.style.cssText = `
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      width: 20px !important;
-      height: 20px !important;
-      border-radius: 3px !important;
-      border: 1px solid #555 !important;
-      cursor: pointer !important;
-      font-size: 12px !important;
-      font-weight: bold !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      background-color: #2196f3 !important;
-      color: white !important;
-    `;
+      previewButton.style.cssText = `
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 22px !important;
+        height: 22px !important;
+        border-radius: 6px !important;
+        border: 1px solid rgba(148,163,184,0.35) !important;
+        cursor: pointer !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background-color: #3B82F6 !important;
+        color: #ffffff !important;
+      `;
     previewButton.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -316,6 +329,81 @@ const getSuggestionId = (s) => {
   
   return suggestionId;
 };
+
+// Local vertical resize handle for sub-panels within the editor area
+function SubpanelResizeHandle({ onResize }) {
+  const isDraggingRef = React.useRef(false);
+  const lastXRef = React.useRef(0);
+  const rafIdRef = React.useRef(null);
+  const overlayRef = React.useRef(null);
+
+  const onMouseDown = React.useCallback((e) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    lastXRef.current = e.clientX;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    // Add a transparent overlay to capture events over iframes and outside the app
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.cursor = 'col-resize';
+    overlay.style.zIndex = '2147483647';
+    overlay.style.background = 'transparent';
+    document.body.appendChild(overlay);
+    overlayRef.current = overlay;
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('pointerup', onMouseUp);
+    window.addEventListener('pointercancel', onMouseUp);
+    window.addEventListener('blur', onMouseUp);
+  }, []);
+
+  const onMouseMove = React.useCallback((e) => {
+    if (!isDraggingRef.current) return;
+    const nextX = e.clientX;
+    const delta = lastXRef.current - nextX; // dragging left increases panel width
+    if (Math.abs(delta) === 0) return;
+    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+    rafIdRef.current = requestAnimationFrame(() => {
+      onResize(delta);
+      lastXRef.current = nextX;
+    });
+  }, [onResize]);
+
+  const onMouseUp = React.useCallback(() => {
+    isDraggingRef.current = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    // Remove overlay
+    if (overlayRef.current) {
+      try { document.body.removeChild(overlayRef.current); } catch (e) {}
+      overlayRef.current = null;
+    }
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+    window.removeEventListener('pointerup', onMouseUp);
+    window.removeEventListener('pointercancel', onMouseUp);
+    window.removeEventListener('blur', onMouseUp);
+  }, [onMouseMove]);
+
+  return (
+    <Box
+      onMouseDown={onMouseDown}
+      sx={{
+        width: '8px',
+        cursor: 'col-resize',
+        background: 'linear-gradient(180deg, rgba(148,163,184,0.12), rgba(148,163,184,0.06))',
+        flexShrink: 0,
+        '&:hover': { background: 'linear-gradient(180deg, rgba(124,92,252,0.24), rgba(124,92,252,0.12))' },
+      }}
+    />
+  );
+}
 
 function EditorArea() {
   const editorRef = useRef(null);
@@ -363,6 +451,22 @@ function EditorArea() {
   const [previewContent, setPreviewContent] = useState('');
   const [previewTitle, setPreviewTitle] = useState('');
   const previewFileRef = useRef(null);
+  // PDF panel state
+  const [isPdfPanelOpen, setIsPdfPanelOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState('');
+  const pdfContainerRef = useRef(null);
+  const pdfIframeRef = useRef(null);
+  const [isCompilingPdf, setIsCompilingPdf] = useState(false);
+  const [compileDialogOpen, setCompileDialogOpen] = useState(false);
+  const [compileTitle, setCompileTitle] = useState('');
+  const [compileAuthor, setCompileAuthor] = useState('');
+  const [compileSubtitle, setCompileSubtitle] = useState('');
+  const [compileError, setCompileError] = useState('');
+  const [compiledSections, setCompiledSections] = useState([]);
+  const [compiledMeta, setCompiledMeta] = useState({ title: '', author: '', subtitle: '' });
+  const [pdfPanelWidth, setPdfPanelWidth] = useState(380);
+  const [previewPanelWidth, setPreviewPanelWidth] = useState(360);
+  const compileCounterRef = useRef(0);
   
   // Book structure dialog state
   const [isBookStructureOpen, setIsBookStructureOpen] = useState(false);
@@ -1037,6 +1141,14 @@ function EditorArea() {
     }
   }, [isPreviewOpen]);
 
+  // Layout editor when PDF panel toggles or resizes
+  useEffect(() => {
+    if (editorRef.current) {
+      const id = setTimeout(() => editorRef.current?.layout(), 60);
+      return () => clearTimeout(id);
+    }
+  }, [isPdfPanelOpen, pdfPanelWidth]);
+
   // Handle window resize and ensure editor layout stays correct
   useEffect(() => {
     const handleResize = () => {
@@ -1156,6 +1268,16 @@ function EditorArea() {
       return;
     }
 
+    if (action === 'compile_book') {
+      setCompileDialogOpen(true);
+      return;
+    }
+
+    if (action === 'toggle_pdf_panel') {
+      setIsPdfPanelOpen((prev) => !prev);
+      return;
+    }
+
     const selection = selectionRef.current;
     const fileIdAtActionStart = activeFileId; // Capture file ID
     if (!selection || !editorRef.current || !fileIdAtActionStart) return;
@@ -1209,8 +1331,212 @@ function EditorArea() {
     }
   };
 
+  // Helper: flatten project files
+  const flattenFilesTree = useCallback((tree) => {
+    const files = [];
+    const recurse = (nodes, path) => {
+      nodes.forEach(node => {
+        const newPath = path ? `${path}/${node.name}` : node.name;
+        if (node.type === 'file') {
+          files.push({ ...node, path: newPath });
+        }
+        if (node.children) recurse(node.children, newPath);
+      });
+    };
+    recurse(tree || [], '');
+    return files;
+  }, []);
+
+  // Extract first H1 as display title
+  const extractH1Title = (markdown, fallback) => {
+    if (!markdown) return fallback;
+    const lines = markdown.split('\n');
+    for (const line of lines) {
+      const m = line.match(/^#\s+(.+)/);
+      if (m) return m[1].trim();
+    }
+    return fallback;
+  };
+
+  const collectBookSections = useCallback(async () => {
+    const files = flattenFilesTree(useStore.getState().projectFiles);
+    const byName = (name) => files.find(f => f.name.toLowerCase() === name);
+    const prologue = byName('prologue.md');
+    const epilogue = byName('epilogue.md');
+    const authorBio = byName('author_bio.md');
+    const chapters = files.filter(f => /^chapter_\d+\.md$/i.test(f.name)).sort((a, b) => {
+      const na = parseInt(a.name.match(/chapter_(\d+)\.md/i)[1], 10);
+      const nb = parseInt(b.name.match(/chapter_(\d+)\.md/i)[1], 10);
+      return na - nb;
+    });
+
+    const wanted = [];
+    if (prologue) wanted.push(prologue);
+    wanted.push(...chapters);
+    if (epilogue) wanted.push(epilogue);
+
+    const fetchContentIfMissing = async (file) => {
+      if (typeof file.content === 'string' && file.content.length > 0) return file.content;
+      try {
+        const resp = await apiService.get(`/files/${file.file_id}`);
+        return resp.data?.content || '';
+      } catch (e) {
+        console.warn(`Failed to fetch content for ${file.name}`, e);
+        return '';
+      }
+    };
+
+    const stripFirstH1 = (markdown) => {
+      if (!markdown) return '';
+      const lines = markdown.split('\n');
+      let removed = false;
+      const kept = [];
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!removed && /^#\s+/.test(line)) {
+          removed = true;
+          continue;
+        }
+        kept.push(line);
+      }
+      return kept.join('\n');
+    };
+
+    const sections = [];
+    for (const file of wanted) {
+      let content = await fetchContentIfMissing(file);
+      const isPrologue = file === prologue;
+      const isEpilogue = file === epilogue;
+      const isChapter = /^chapter_\d+\.md$/i.test(file.name);
+      const chapterNum = isChapter ? parseInt(file.name.match(/chapter_(\d+)\.md/i)[1], 10) : null;
+      let displayTitle = extractH1Title(content, file.name.replace(/_/g, ' ').replace(/\.md$/i, ''));
+      if (isPrologue) displayTitle = `Prologue: ${displayTitle}`;
+      if (isEpilogue) displayTitle = `Epilogue: ${displayTitle}`;
+      if (isChapter && chapterNum != null) displayTitle = `Chapter ${chapterNum}: ${displayTitle}`;
+      // Remove the top-level H1 from content to avoid duplicate titles in output
+      content = stripFirstH1(content || '');
+      sections.push({ title: displayTitle, markdown: content });
+    }
+
+    // Author bio as final section
+    if (authorBio) {
+      const bioContent = await fetchContentIfMissing(authorBio);
+      sections.push({ title: 'About the Author', markdown: bioContent || '' });
+    }
+
+    return sections;
+  }, [flattenFilesTree]);
+
+  const generatePdfFromSections = useCallback(async (meta, sections) => {
+    // Open panel and render HTML, then convert to PDF
+    setIsPdfPanelOpen(true);
+    setIsCompilingPdf(true);
+    // Revoke previous URL if any to avoid cache issues
+    setPdfUrl((prev) => {
+      try { if (prev) URL.revokeObjectURL(prev); } catch (e) {}
+      return '';
+    });
+    setCompiledMeta(meta);
+    setCompiledSections(sections);
+    const runId = ++compileCounterRef.current;
+
+    // Build static HTML string to avoid DOM timing issues
+    const esc = (s = '') => String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    const htmlSections = sections.map((sec, idx) => {
+      const rendered = sec.markdown ? marked.parse(sec.markdown) : '';
+      const breakHtml = idx > 0 ? '<div class="page-break"></div>' : '';
+      return `
+      ${breakHtml}
+      <section class=\"section\">
+        <h2>${esc(sec.title)}</h2>
+        <div class=\"md\">${rendered}</div>
+      </section>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          @page { margin: 12mm; }
+          body { color: #000; background: #fff; padding: 12mm; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size: 12pt; line-height: 1.5; }
+          h1 { font-size: 28px; margin: 0 0 8px; page-break-after: avoid; }
+          h2 { font-size: 18px; margin: 16px 0 8px; page-break-after: avoid; }
+          .title-block { text-align: center; margin-bottom: 24px; }
+          .subtitle { font-size: 16px; color: #222; }
+          .author { margin-top: 4px; color: #333; font-size: 14px; }
+          .section { page-break-inside: avoid; break-inside: avoid; margin-bottom: 16px; }
+          .md { white-space: normal; word-wrap: break-word; }
+          .md p { margin: 8px 0; page-break-inside: avoid; }
+          .md ul, .md ol { margin: 8px 0 8px 20px; page-break-inside: avoid; }
+          .md pre { background: #f6f8fa; padding: 8px; border-radius: 4px; overflow: auto; white-space: pre-wrap; word-break: break-word; page-break-inside: avoid; }
+          .md code { background: #f6f8fa; padding: 2px 4px; border-radius: 3px; }
+          .md img { max-width: 100%; height: auto; }
+          .page-break { height: 0; page-break-before: always; break-before: page; }
+          @media print {
+            .no-print { display: none !important; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="title-block">
+          <h1>${esc(meta.title || 'Untitled Book')}</h1>
+          ${meta.subtitle ? `<div class="subtitle">${esc(meta.subtitle)}</div>` : ''}
+          <div class="author">by ${esc(meta.author || 'Unknown Author')}</div>
+        </div>
+        <div class="page-break"></div>
+        ${htmlSections}
+      </body>
+    </html>`;
+
+    try {
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      if (compileCounterRef.current === runId) {
+        setPdfUrl(url);
+      } else {
+        URL.revokeObjectURL(url);
+      }
+    } catch (e) {
+      console.error('Failed to generate PDF:', e);
+      alert('Failed to prepare PDF preview.');
+    } finally {
+      if (compileCounterRef.current === runId) setIsCompilingPdf(false);
+    }
+  }, []);
+
+  const handlePrintPdf = useCallback(() => {
+    try {
+      const iframe = pdfIframeRef.current;
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }
+    } catch (e) {
+      console.warn('Print failed:', e);
+    }
+  }, []);
+
+  const handleCompileSubmit = async () => {
+    setCompileError('');
+    if (!compileTitle.trim() || !compileAuthor.trim()) {
+      setCompileError('Title and Author are required');
+      return;
+    }
+    setCompileDialogOpen(false);
+    // Close text preview if open
+    if (isPreviewOpen) setIsPreviewOpen(false);
+    const sections = await collectBookSections();
+    await generatePdfFromSections({ title: compileTitle.trim(), author: compileAuthor.trim(), subtitle: compileSubtitle.trim() }, sections);
+  };
+
   const handleCustomPromptClose = () => {
     setIsCustomPromptOpen(false);
+    setCustomPrompt('');
     // Restore focus to the editor after the dialog closes
     setTimeout(() => editorRef.current?.focus(), 0);
   };
@@ -1995,6 +2321,8 @@ function EditorArea() {
         onAiAction={handleAiAction}
         isTextSelected={isTextSelected}
         isAiLoading={isAiLoading}
+        isCompilingPdf={isCompilingPdf}
+        hasPdf={!!pdfUrl}
       />
         <Tabs
           value={activeFileId}
@@ -2036,11 +2364,11 @@ function EditorArea() {
             />
           ))}
         </Tabs>
-      <Box sx={{ flexGrow: 1, position: 'relative', display: 'flex' }}>
+      <Box sx={{ flexGrow: 1, position: 'relative', display: 'flex', minHeight: 0 }}>
         {/* Main Editor */}
         <Box sx={{ 
           flexGrow: 1, 
-          width: isPreviewOpen ? '70%' : '100%', 
+          minWidth: 0,
           position: 'relative',
           transition: 'width 0.3s ease'
         }}>
@@ -2140,7 +2468,7 @@ function EditorArea() {
         {/* Preview Split */}
         {isPreviewOpen && (
           <Box sx={{ 
-            width: '30%', 
+            width: `${previewPanelWidth}px`,
             borderLeft: '1px solid #444',
             bgcolor: '#1e1e1e',
             display: 'flex',
@@ -2181,7 +2509,7 @@ function EditorArea() {
                 color: '#d4d4d4',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
-                maxHeight: 'calc(100vh - 200px)', // Ensure scrolling works
+                minHeight: 0,
                 '&::-webkit-scrollbar': {
                   width: '8px',
                 },
@@ -2201,7 +2529,134 @@ function EditorArea() {
             </Box>
           </Box>
         )}
+
+        {/* PDF Panel */}
+        {isPdfPanelOpen && (
+          <>
+          <SubpanelResizeHandle onResize={(delta) => {
+            // Increase width when dragging left (positive delta from handler logic)
+            setPdfPanelWidth((w) => Math.max(220, Math.min(900, w + delta)));
+          }} />
+            <Box sx={{ 
+            width: `${pdfPanelWidth}px`,
+            borderLeft: '1px solid #444',
+            bgcolor: '#0f1216',
+            display: 'flex',
+            flexDirection: 'column',
+            transition: 'none',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <Box sx={{ 
+              p: 1, 
+              borderBottom: '1px solid #222',
+              display: 'flex',
+                justifyContent: 'space-between',
+              alignItems: 'center',
+              bgcolor: '#10161d'
+            }}>
+              <Typography variant="subtitle2" sx={{ color: '#fff', fontSize: '12px' }}>
+                PDF Preview
+              </Typography>
+                <Box>
+                  <Tooltip title="Print / Save as PDF">
+                    <span>
+                      <IconButton 
+                        size="small" 
+                        onClick={handlePrintPdf}
+                        disabled={!pdfUrl || isCompilingPdf}
+                        sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }, mr: 0.5 }}
+                      >
+                        <LocalPrintshop fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => setIsPdfPanelOpen(false)}
+                    sx={{ color: '#fff', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+            </Box>
+            <Box ref={pdfContainerRef} sx={{ position: 'absolute', left: '-10000px', top: 0, width: '800px', p: 3, bgcolor: '#fff', color: '#000', pointerEvents: 'none' }}>
+              {/* Renderable container used for html2pdf rendering */}
+              <Box sx={{ textAlign: 'center', mb: 2 }}>
+                <Typography variant="h4" component="h1" sx={{ color: '#000' }}>{compiledMeta.title || 'Untitled Book'}</Typography>
+                {compiledMeta.subtitle && <Typography variant="subtitle1" component="p" sx={{ color: '#222' }}>{compiledMeta.subtitle}</Typography>}
+                <Typography variant="subtitle2" component="p" sx={{ mt: 1, color: '#333' }}>by {compiledMeta.author || 'Unknown Author'}</Typography>
+              </Box>
+              {compiledSections.map((sec, idx) => (
+                <Box key={idx} sx={{ pageBreakInside: 'avoid', mb: 2 }}>
+                  <Typography variant="h6" component="h2" sx={{ color: '#000', mb: 1 }}>{sec.title}</Typography>
+                  <div style={{ color: '#000' }}>
+                    <ReactMarkdown>{sec.markdown}</ReactMarkdown>
+                  </div>
+                </Box>
+              ))}
+            </Box>
+            <Box sx={{ flexGrow: 1, overflow: 'auto', bgcolor: '#0f1216' }}>
+              {isCompilingPdf && (
+                <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                  <CircularProgress size={24} />
+                </Box>
+              )}
+              {!isCompilingPdf && pdfUrl && (
+                <iframe ref={pdfIframeRef} title="Book PDF" src={pdfUrl} style={{ width: '100%', height: '100%', border: 'none' }} />
+              )}
+              {!isCompilingPdf && !pdfUrl && (
+                <Box sx={{ p: 2 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Use Compile Book to generate a PDF preview here.
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Box>
+          </>
+        )}
       </Box>
+
+      {/* Compile Book Dialog */}
+      <Dialog open={compileDialogOpen} onClose={() => setCompileDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Compile Book to PDF</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+            This will assemble files named prologue.md, chapter_*.md, epilogue.md, and author_bio.md and generate a PDF preview.
+          </Typography>
+          <TextField
+            label="Title"
+            value={compileTitle}
+            onChange={(e) => setCompileTitle(e.target.value)}
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            label="Author"
+            value={compileAuthor}
+            onChange={(e) => setCompileAuthor(e.target.value)}
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            label="Subtitle (optional)"
+            value={compileSubtitle}
+            onChange={(e) => setCompileSubtitle(e.target.value)}
+            fullWidth
+            margin="dense"
+          />
+          {compileError && (
+            <Typography variant="caption" sx={{ color: 'error.main' }}>{compileError}</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCompileDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={async () => {
+            await handleCompileSubmit();
+          }}>Compile</Button>
+        </DialogActions>
+      </Dialog>
       <Dialog open={isCustomPromptOpen} onClose={handleCustomPromptClose} fullWidth maxWidth="sm" TransitionProps={{ onEntered: handleDialogEntered }}>
         <DialogTitle>Custom AI Action</DialogTitle>
         <DialogContent>

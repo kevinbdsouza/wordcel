@@ -10,6 +10,47 @@ const apiService = axios.create({
   },
 });
 
+// --- Error mapping ---
+const mapApiError = (error, context) => {
+  // Network or unexpected
+  if (!error.response) {
+    return { message: 'Cannot reach server. Please check your connection and try again.' };
+  }
+
+  const status = error.response.status;
+  const data = error.response.data || {};
+  const code = data.code;
+
+  // Friendly message mapping based on backend codes
+  const byCode = {
+    INVALID_EMAIL_FORMAT: { message: 'That doesn’t look like a valid email address.', field: 'email' },
+    EMAIL_NOT_FOUND: { message: 'We couldn’t find an account with that email.', field: 'email' },
+    INCORRECT_PASSWORD: { message: 'Incorrect password. Try again.', field: 'password' },
+    MISSING_FIELDS: { message: 'Please fill in all required fields.' },
+    EMAIL_TAKEN: { message: 'That email is already registered. Try signing in.', field: 'email' },
+    INVALID_USERNAME: { message: 'Username must be at least 3 characters.', field: 'username' },
+    WEAK_PASSWORD: { message: 'Password must be at least 8 characters.', field: 'password' },
+    PROJECT_NAME_REQUIRED: { message: 'Project name cannot be empty.', field: 'projectName' },
+    PROJECT_NAME_TOO_LONG: { message: 'Project name must be 64 characters or fewer.', field: 'projectName' },
+    PROJECT_NAME_TAKEN: { message: 'A project with this name already exists.', field: 'projectName' }
+  };
+
+  if (code && byCode[code]) {
+    return { code, ...byCode[code] };
+  }
+
+  // Fallbacks by status
+  if (status >= 500) {
+    return { message: 'Something went wrong on our side. Please try again.' };
+  }
+  if (status === 401 || status === 403) {
+    return { message: 'You’re not authorized to perform this action.' };
+  }
+
+  // Use server-provided message or generic
+  return { message: data.message || 'Request failed. Please try again.' };
+};
+
 // --- Axios Request Interceptor ---
 // Automatically attach JWT token to Authorization header for requests
 apiService.interceptors.request.use(
@@ -68,9 +109,7 @@ export const registerUser = async (userData) => {
     const response = await apiService.post('/auth/register', userData);
     return response.data; // Contains { message, user }
   } catch (error) {
-    // Re-throw error to be caught by the component
-    // Axios wraps response errors in error.response
-    throw error.response?.data || { message: error.message || 'Registration failed' };
+    throw mapApiError(error, 'register');
   }
 };
 
@@ -84,7 +123,7 @@ export const loginUser = async (credentials) => {
     const response = await apiService.post('/auth/login', credentials);
     return response.data; // Contains { message, accessToken, user }
   } catch (error) {
-    throw error.response?.data || { message: error.message || 'Login failed' };
+    throw mapApiError(error, 'login');
   }
 };
 
@@ -100,7 +139,7 @@ export const getProjects = async () => {
     const response = await apiService.get('/projects');
     return response.data;
   } catch (error) {
-    throw error.response?.data || { message: error.message || 'Failed to fetch projects' };
+    throw mapApiError(error, 'getProjects');
   }
 };
 
@@ -114,7 +153,7 @@ export const createProject = async (name) => {
     const response = await apiService.post('/projects', { name });
     return response.data;
   } catch (error) {
-    throw error.response?.data || { message: error.message || 'Failed to create project' };
+    throw mapApiError(error, 'createProject');
   }
 };
 
@@ -128,7 +167,7 @@ export const getProjectFiles = async (projectId) => {
     const response = await apiService.get(`/projects/${projectId}/files`);
     return response.data;
   } catch (error) {
-    throw error.response?.data || { message: error.message || 'Failed to fetch project files' };
+    throw mapApiError(error, 'getProjectFiles');
   }
 };
 
@@ -146,7 +185,7 @@ export const updateFile = async (fileId, content, name) => {
     const response = await apiService.put(`/files/${fileId}`, payload);
     return response.data;
   } catch (error) {
-    throw error.response?.data || { message: error.message || 'Failed to save file' };
+    throw mapApiError(error, 'updateFile');
   }
 };
 
@@ -160,7 +199,7 @@ export const createFile = async ({ projectId, name, type, parent_id }) => {
         const response = await apiService.post(`/projects/${projectId}/files`, { name, type, parent_id });
         return response.data;
     } catch (error) {
-        throw error.response?.data || { message: error.message || 'Failed to create file' };
+        throw mapApiError(error, 'createFile');
     }
 };
 
@@ -175,7 +214,7 @@ export const moveFile = async (fileId, parentId) => {
         const response = await apiService.patch(`/files/${fileId}`, { parent_id: parentId });
         return response.data;
     } catch (error) {
-        throw error.response?.data || { message: error.message || 'Failed to move file' };
+        throw mapApiError(error, 'moveFile');
     }
 };
 
@@ -189,7 +228,7 @@ export const deleteFile = async (fileId) => {
         const response = await apiService.delete(`/files/${fileId}`);
         return response.data;
     } catch (error) {
-        throw error.response?.data || { message: 'Failed to delete file' };
+        throw mapApiError(error, 'deleteFile');
     }
 };
 
@@ -204,7 +243,7 @@ export const renameFile = async (fileId, name) => {
         const response = await apiService.patch(`/files/${fileId}`, { name });
         return response.data;
     } catch (error) {
-        throw error.response?.data || { message: 'Failed to rename file' };
+        throw mapApiError(error, 'renameFile');
     }
 };
 
@@ -218,7 +257,7 @@ export const indexProject = async (projectId) => {
         const response = await apiService.post(`/projects/${projectId}/index`);
         return response.data;
     } catch (error) {
-        throw error.response?.data || { message: 'Failed to start project indexing' };
+        throw mapApiError(error, 'indexProject');
     }
 };
 

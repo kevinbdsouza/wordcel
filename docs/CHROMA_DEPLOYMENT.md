@@ -1,6 +1,6 @@
 # Chroma Vector Store Deployment Guide
 
-This guide explains how to deploy QuillMind with Chroma vector database instead of Cloudflare Vectorize, providing persistent storage that works both locally and in production.
+This guide explains how to deploy Wordcel with Chroma vector database instead of Cloudflare Vectorize, providing persistent storage that works both locally and in production.
 
 ## 🎯 Why Chroma?
 
@@ -131,7 +131,7 @@ services:
       - CHROMA_SERVER_HOST=0.0.0.0
     restart: unless-stopped
     networks:
-      - quillmind-network
+      - wordcel-network
 
   app:
     build: .
@@ -144,14 +144,14 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     restart: unless-stopped
     networks:
-      - quillmind-network
+      - wordcel-network
 
 volumes:
   chroma_data:
     driver: local
 
 networks:
-  quillmind-network:
+  wordcel-network:
     driver: bridge
 ```
 
@@ -175,7 +175,7 @@ CHROMA_URL=http://chroma:8000
 # render.yaml
 services:
   - type: web
-    name: quillmind-app
+    name: wordcel-app
     env: docker
     dockerfilePath: ./Dockerfile
     envVars:
