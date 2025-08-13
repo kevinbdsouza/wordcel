@@ -1,0 +1,45 @@
+{
+    "name": "quillmind",
+    "version": "0.1.0",
+    "description": "AI-Powered Writing Assistant",
+    "author": "Kevin Dsouza",
+    "license": "MIT",
+    "scripts": {
+        "dev": "wrangler pages dev --proxy 5173 --experimental-vectorize-bind-to-prod -- npm run dev:frontend",
+        "dev:frontend": "vite",
+        "dev:backend": "echo \"'dev:backend' is deprecated, use 'npm run dev' instead\"",
+        "build": "vite build",
+        "preview": "vite preview",
+        "pages:deploy": "npm run build && wrangler pages deploy ./dist",
+        "apply-schema": "node scripts/apply-schema.js"
+    },
+    "dependencies": {
+        "@emotion/react": "^11.11.4",
+        "@emotion/styled": "^11.11.5",
+        "@monaco-editor/react": "^4.6.0",
+        "@mui/icons-material": "^5.15.21",
+        "@mui/material": "^5.15.21",
+        "@mui/x-tree-view": "^7.9.0",
+        "axios": "^1.7.2",
+        "bcryptjs": "^2.4.3",
+        "diff": "^8.0.2",
+        "dotenv": "^16.4.5",
+        "jsonwebtoken": "^9.0.2",
+        "jwt-decode": "^4.0.0",
+        "parse-diff": "^0.11.1",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "react-icons": "^5.5.0",
+        "react-markdown": "^10.1.0",
+        "react-router-dom": "^6.24.1",
+        "vite-plugin-node-polyfills": "^0.23.0",
+        "zustand": "^4.5.4"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-react": "^4.3.1",
+        "concurrently": "^8.2.2",
+        "pg": "^8.16.3",
+        "vite": "^5.3.3",
+        "wrangler": "^4.0.0"
+    }
+}
