@@ -1,6 +1,6 @@
-# QuillMind
+# Wordcel
 
-QuillMind is an AI‑powered writing assistant. 
+Wordcel is an AI‑powered writing assistant. 
 
 ## Features
 
