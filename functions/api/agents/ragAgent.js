@@ -2,6 +2,7 @@ import { json, error } from '../utils';
 import { query } from '../../../api/dbConfig';
 import axios from 'axios';
 import { getVectorStore } from '../services/cloudflareKVVectorStore';
+import { AI_MODELS } from './config';
 
 export const handleRagChat = async (body, env, user) => {
     const { text, history, projectId } = body; // Assuming projectId is passed in the request
@@ -12,7 +13,7 @@ export const handleRagChat = async (body, env, user) => {
 
     // 1. Generate embedding for the user's query using Gemini
     const apiKey = env.GEMINI_API_KEY;
-    const embeddingModel = 'text-embedding-004';
+    const embeddingModel = AI_MODELS.EMBEDDING_MODEL;
     const embeddingApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${embeddingModel}:embedContent?key=${apiKey}`;
 
     let queryVector;
@@ -87,7 +88,7 @@ export const handleRagChat = async (body, env, user) => {
     const prompt = `${contextText}\n\n${historyText}Based on the provided context and history, answer the user's question:\nUser: ${text}\n---\nAI:`;
 
     // 5. Call the Gemini API for chat completion
-    const llmModel = 'gemini-1.5-flash';
+    const llmModel = AI_MODELS.CHAT_MODEL;
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${llmModel}:generateContent?key=${apiKey}`;
     const requestBody = {
         contents: [{ parts: [{ text: prompt }] }],

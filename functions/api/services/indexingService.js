@@ -1,6 +1,7 @@
 import { query } from '../../../api/dbConfig';
 import axios from 'axios';
 import { getVectorStore } from './cloudflareKVVectorStore';
+import { AI_MODELS } from '../agents/config';
 
 // Function to index a single file
 export const indexSingleFile = async (fileId, env) => {
@@ -23,7 +24,7 @@ export const indexSingleFile = async (fileId, env) => {
 
     // 2. Generate embedding for the file using Gemini
     const apiKey = env.GEMINI_API_KEY;
-    const embeddingModel = 'text-embedding-004';
+    const embeddingModel = AI_MODELS.EMBEDDING_MODEL;
     const embeddingApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${embeddingModel}:embedContent?key=${apiKey}`;
 
     try {
@@ -76,7 +77,7 @@ export const indexProjectFiles = async (projectId, env) => {
 
     // 2. Generate embeddings for each file using Gemini
     const apiKey = env.GEMINI_API_KEY;
-    const embeddingModel = 'text-embedding-004';
+    const embeddingModel = AI_MODELS.EMBEDDING_MODEL;
     const embeddingApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${embeddingModel}:embedContent?key=${apiKey}`;
     
     const embeddings = [];

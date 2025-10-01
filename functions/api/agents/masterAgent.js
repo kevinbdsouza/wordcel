@@ -4,38 +4,43 @@ import { handleEditRequest } from './editAgent';
 import { handleFileCreationRequest } from './fileCreationAgent';
 import { error, json } from '../utils';
 import axios from 'axios';
+import { AI_MODELS } from './config';
 
 const getRoutingChoice = async (text, context, apiKey) => {
     const contextProvided = context && context.files && context.files.length > 0;
 
-    const prompt = `You are a master routing agent. Your job is to classify a user's query into one of three categories based on the query and whether file context is provided.
+    const prompt = `You are a master routing agent. Classify the user's query into ONE category: 'edit', 'rag', or 'standard'.
 
-Categories:
-1. 'edit': The query requests to modify, edit, change, update, fix, or refactor code. This includes:
-   - Direct edit requests: "edit this file", "modify the function", "change the code", "update the component"
-   - Fix requests: "fix this bug", "correct the error", "resolve the issue"
-   - Refactor requests: "refactor this code", "improve the structure", "optimize this function"
-   - Add/remove requests: "add a new feature", "remove this line", "insert new code"
-   - Replace requests: "replace this with", "substitute the code", "swap the implementation"
+CATEGORIES:
 
-2. 'rag': The query requires searching across the entire project's files to be answered properly. This is for questions about how different parts of the code interact, broad project-level questions, or questions about files that are NOT provided in the context.
+1. 'edit' - Use when the query requests CODE CHANGES or MODIFICATIONS:
+   - Keywords: edit, modify, change, update, fix, refactor, add, remove, replace, correct, improve, optimize, insert, delete, substitute, swap, rewrite, adjust, implement, create (when adding to existing files)
+   - Examples: 
+     * "change the button color to red"
+     * "fix the bug in the login function"
+     * "add error handling"
+     * "update the API endpoint"
+     * "make the header bigger"
+   - IMPORTANT: Choose 'edit' if the user wants ANY kind of code modification!
 
-3. 'standard': The query is a general conversation topic OR it can be answered using ONLY the specific file context that has been provided by the user.
+2. 'rag' - Use when the query needs PROJECT-WIDE SEARCH:
+   - The query asks about code NOT in the provided context
+   - Questions about how different parts interact
+   - Examples: "how does authentication work?", "where is this function called?"
 
-**Analysis:**
-- **User Query:** "${text}"
-- **File Context Provided:** ${contextProvided ? 'Yes' : 'No'}
+3. 'standard' - Use for QUESTIONS and EXPLANATIONS:
+   - General questions or explanations
+   - Questions about the provided file context
+   - Examples: "what does this do?", "explain this function", "hello"
 
-**Decision Logic:**
-- If the query contains edit-related keywords (edit, modify, change, update, fix, refactor, add, remove, replace, correct, improve, optimize, insert, substitute, swap) AND requests code changes, choose 'edit'.
-- If the query is general (e.g., "hello", "what is react?"), choose 'standard'.
-- If File Context is 'Yes' and the query is about that context (e.g., "explain this function", "what does this code do?"), choose 'standard'.
-- If the query is about the project but requires knowledge beyond the provided context (e.g., "how does authentication work?", "where is this function used?"), choose 'rag'.
-- If File Context is 'No' and the query is about the project, choose 'rag'.
+QUERY: "${text}"
+FILE CONTEXT PROVIDED: ${contextProvided ? 'Yes' : 'No'}
 
-Respond with only the single word: 'edit', 'rag', or 'standard'.`;
+CRITICAL: If the query asks to CHANGE, MODIFY, FIX, or UPDATE code, you MUST respond with 'edit'.
 
-    const model = 'gemini-1.5-flash';
+Respond with ONLY ONE WORD: edit, rag, or standard`;
+
+    const model = AI_MODELS.CHAT_MODEL;
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const requestBody = {
@@ -48,10 +53,15 @@ Respond with only the single word: 'edit', 'rag', or 'standard'.`;
     try {
         const geminiResponse = await axios.post(apiUrl, requestBody, { headers: { 'Content-Type': 'application/json' } });
         const choice = geminiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || 'standard';
-        console.log(`Routing choice for query "${text}" (Context Provided: ${contextProvided}): ${choice.trim()}`);
-        return choice.trim().toLowerCase();
+        const trimmedChoice = choice.trim().toLowerCase();
+        console.log(`[MASTER AGENT ROUTING]`);
+        console.log(`  Query: "${text}"`);
+        console.log(`  Context Provided: ${contextProvided}`);
+        console.log(`  Routing Decision: ${trimmedChoice}`);
+        return trimmedChoice;
     } catch (err) {
-        console.error(`[AI ERROR] in Master Agent Routing:`, err.response?.data || err.message);
+        console.error(`[MASTER AGENT ERROR] Routing failed:`, err.response?.data || err.message);
+        console.log(`[MASTER AGENT] Defaulting to 'standard' agent due to routing error`);
         // Default to standard agent on routing failure
         return 'standard';
     }

@@ -2,6 +2,7 @@ import { json, error } from '../utils';
 import { query } from '../../../api/dbConfig';
 import axios from 'axios';
 import { getVectorStore } from '../services/cloudflareKVVectorStore';
+import { AI_MODELS } from './config';
 
 // Simple UUID generation function to avoid external dependencies
 const generateId = () => {
@@ -165,7 +166,7 @@ const discoverFilesWithRAG = async (editRequest, projectId, env) => {
         
         // Generate embedding for the edit request
         const apiKey = env.GEMINI_API_KEY;
-        const embeddingModel = 'text-embedding-004';
+        const embeddingModel = AI_MODELS.EMBEDDING_MODEL;
         const embeddingApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${embeddingModel}:embedContent?key=${apiKey}`;
 
         const embeddingRequestBody = {
@@ -388,43 +389,49 @@ const generateDiffForFile = async (file, editRequest, context, apiKey) => {
         return [];
     }
 
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`;
+    const model = AI_MODELS.CHAT_MODEL;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
     const systemInstruction = {
         role: "system",
         parts: [{
-            text: `You are an expert programmer and an AI assistant that specializes in editing code.
-Your task is to analyze the user's edit request and the provided file content, and then generate a precise set of changes to fulfill the request.
+            text: `You are an expert programmer that generates precise code edits.
 
-You MUST follow these rules:
-1.  Analyze the user's request: "${editRequest}".
-2.  Analyze the full content of the file: \`${file.name}\`.
-3.  Identify the exact parts of the file that need to be changed.
-4.  For each change, provide the original content to be replaced (\`oldContent\`) and the new content to insert (\`newContent\`).
-5.  The \`oldContent\` MUST be an exact substring from the original file.
-6.  You MUST output your response as a valid JSON object. Do not include any text outside the JSON block.
-7.  The JSON object should have a single key, "changes", which is an array of change objects.
-8.  Each change object must have two keys: "oldContent" and "newContent".
-9.  If NO changes are needed (e.g., the code is already correct or the request is irrelevant), return an empty array: \`{ "changes": [] }\`.
-10. Ensure that the generated \`newContent\` includes proper indentation and formatting that matches the surrounding code.
-11. Only provide changes for this file. Do not suggest creating new files or modifying other files.
-12. Be precise. Do not replace more code than necessary. The \`oldContent\` should be as minimal as possible while still being unique enough to locate.
+TASK: Generate exact changes needed to fulfill the user's edit request for the file \`${file.name}\`.
 
-Example Response:
-\`\`\`json
+CRITICAL RULES:
+1. For each change, provide:
+   - "oldContent": The EXACT substring from the original file to be replaced (must match character-for-character)
+   - "newContent": The new content that will replace it
+
+2. The "oldContent" MUST:
+   - Be an exact, character-perfect match from the file (including all whitespace and indentation)
+   - Be large enough to be unique and identifiable
+   - Include enough context lines to avoid ambiguity
+
+3. The "newContent" MUST:
+   - Match the indentation and formatting style of the surrounding code
+   - Be a complete, valid replacement
+
+4. Output Format:
+   - Return ONLY a valid JSON object
+   - No additional text or explanation
+   - Format: { "changes": [{"oldContent": "...", "newContent": "..."}, ...] }
+
+5. If the request is unclear, irrelevant, or the code already satisfies the request:
+   - Return { "changes": [] }
+
+6. IMPORTANT: Actually make the requested changes! Don't return an empty array unless the request genuinely doesn't apply to this file.
+
+Example:
 {
     "changes": [
         {
-      "oldContent": "const oldVariable = 'value';",
-      "newContent": "const newVariable = 'newValue';"
-    },
-    {
-      "oldContent": "<p>Some old text</p>",
-      "newContent": "<p>Some new, updated text</p>"
-    }
-  ]
+            "oldContent": "const oldVariable = 'value';",
+            "newContent": "const newVariable = 'newValue';"
+        }
+    ]
 }
-\`\`\`
 `
         }]
     };
@@ -434,7 +441,7 @@ Example Response:
             {
                 role: "user",
                 parts: [{
-                    text: `Here is the file \`${file.name}\`:\n\n\`\`\`\n${file.content}\n\`\`\``
+                    text: `Edit Request: "${editRequest}"\n\nHere is the file \`${file.name}\`:\n\n\`\`\`\n${file.content}\n\`\`\``
                 }]
             }
         ],
@@ -456,15 +463,21 @@ Example Response:
         }
         
         const rawJson = response.data.candidates[0].content.parts[0].text;
+        console.log(`[Diff Generation] Raw LLM response for ${file.name}:`, rawJson);
+        
         const parsedResponse = JSON.parse(rawJson);
         const rawChanges = parsedResponse.changes || [];
         
         if (rawChanges.length === 0) {
-            console.log(`[Diff Generation] LLM reported no changes needed for ${file.name}.`);
+            console.log(`[Diff Generation] ⚠️ LLM returned ZERO changes for ${file.name}`);
+            console.log(`[Diff Generation] This might indicate:`);
+            console.log(`  - The request was unclear`);
+            console.log(`  - The changes are already applied`);
+            console.log(`  - The LLM couldn't determine what to change`);
             return [];
         }
         
-        console.log(`[Diff Generation] Received ${rawChanges.length} raw changes from LLM for ${file.name}.`);
+        console.log(`[Diff Generation] ✓ Received ${rawChanges.length} raw changes from LLM for ${file.name}`);
 
         const processedChanges = [];
         const fileContent = file.content;
