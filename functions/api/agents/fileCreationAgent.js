@@ -2,6 +2,7 @@ import { json, error } from '../utils';
 import { query } from '../../../api/dbConfig';
 import axios from 'axios';
 import { getVectorStore } from '../services/cloudflareKVVectorStore';
+import { AI_MODELS } from './config';
 
 // Simple UUID generation function
 const generateId = () => {
@@ -339,7 +340,7 @@ const generateFileContent = async (file, bookTitle, storyGoal, allProjectFiles, 
         const searchQuery = `${bookTitle} ${storyGoal} ${fileType} ${file.name}`;
         
         // Generate embedding for the search query
-        const embeddingModel = 'text-embedding-004';
+        const embeddingModel = AI_MODELS.EMBEDDING_MODEL;
         const embeddingApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${embeddingModel}:embedContent?key=${apiKey}`;
         
         const embeddingRequestBody = {
@@ -413,7 +414,7 @@ IMPORTANT: Generate ONLY the raw markdown content for this file. Do NOT wrap it 
 Content for ${file.name}:`;
 
     try {
-        const model = 'gemini-1.5-flash';
+        const model = AI_MODELS.CHAT_MODEL;
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
         
         const requestBody = {
@@ -495,7 +496,7 @@ Please provide 2-3 specific suggestions to improve this ${fileType} content to b
 
 Format each suggestion as a brief improvement recommendation (1-2 sentences each).`;
 
-            const model = 'gemini-1.5-flash';
+            const model = AI_MODELS.CHAT_MODEL;
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
             
             const requestBody = {

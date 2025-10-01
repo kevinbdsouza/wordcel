@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { json, error } from '../utils';
+import { AI_MODELS } from './config';
 
 export const handleStandardChat = async (body, env, user) => {
     const { text, context: requestContext, history } = body;
@@ -25,7 +26,7 @@ export const handleStandardChat = async (body, env, user) => {
 
     const prompt = `${fileContextText}${historyText}Now, answer the user's question:\nUser: ${text}\n---\nAI:`;
 
-    const model = 'gemini-1.5-flash'; // Corrected model name
+    const model = AI_MODELS.CHAT_MODEL;
 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
